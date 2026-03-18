@@ -258,19 +258,16 @@ class BaseClient:
         """Calculates the delay before the next retry attempt.
 
         Uses retry-after header if present, otherwise exponential back-off with jitter.
-        Returns delay in seconds.
         """
         if APIResponseError.is_api_response_error(error):
             retry_after_ms = self._parse_retry_after_header(error.headers)
             if retry_after_ms is not None:
-                return min(retry_after_ms, self._max_retry_delay_ms) / 1000.0
+                return min(retry_after_ms, self._max_retry_delay_ms)
 
         # Exponential back-off with full jitter
         base_delay = self._initial_retry_delay_ms * math.pow(2, attempt)
         jitter = random.random()
-        delay = (
-            min(base_delay * jitter + base_delay / 2, self._max_retry_delay_ms) / 1000.0
-        )
+        delay = min(base_delay * jitter + base_delay / 2, self._max_retry_delay_ms)
         return delay
 
     def _parse_retry_after_header(self, headers: httpx.Headers) -> Optional[float]:
@@ -386,11 +383,11 @@ class Client(BaseClient):
                 if attempt >= self._max_retries or not self._can_retry(error, method):
                     raise error
 
-                delay = self._calculate_retry_delay(error, attempt)
+                delay_ms = self._calculate_retry_delay(error, attempt)
                 self.logger.info(
-                    f"retrying request: method={method}, path={path}, attempt={attempt + 1}, delay_ms={delay * 1000:.0f}"
+                    f"retrying request: method={method}, path={path}, attempt={attempt + 1}, delay_ms={delay_ms:.0f}"
                 )
-                time.sleep(delay)
+                time.sleep(delay_ms / 1000.0)
                 attempt += 1
 
     def _execute_single_request(self, request: Request, method: str, path: str) -> Any:
@@ -477,11 +474,11 @@ class AsyncClient(BaseClient):
                 if attempt >= self._max_retries or not self._can_retry(error, method):
                     raise error
 
-                delay = self._calculate_retry_delay(error, attempt)
+                delay_ms = self._calculate_retry_delay(error, attempt)
                 self.logger.info(
-                    f"retrying request: method={method}, path={path}, attempt={attempt + 1}, delay_ms={delay * 1000:.0f}"
+                    f"retrying request: method={method}, path={path}, attempt={attempt + 1}, delay_ms={delay_ms:.0f}"
                 )
-                await asyncio.sleep(delay)
+                await asyncio.sleep(delay_ms / 1000.0)
                 attempt += 1
 
     async def _execute_single_request(
