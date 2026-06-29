@@ -437,10 +437,13 @@ handler without standing up a real subscription.
 Run the tests with the `pytest` command. If you want to test against all Python
 versions, you can run `tox` instead.
 
-The tests are using `pytest-vcr`'s cassettes for simulating requests to the
-Notion API. To create new tests or run them without cassettes, you need to set
-up the environment variables `NOTION_TOKEN` and `NOTION_TEST_PAGE_ID` (a page
-where your integration has all the capabilities enabled).
+The tests are using `pytest-recording`'s cassettes for simulating requests to
+the Notion API. To create new tests or record cassettes from scratch, you need
+to set up the environment variables `NOTION_TOKEN` and `NOTION_TEST_PAGE_ID` (a
+page where your integration has all the capabilities enabled) and run the suite
+with `pytest --record-mode=once`. By default `pytest-recording` uses
+`--record-mode=none`, which only replays the existing cassettes and never hits
+the network.
 
 The code will use the page at `NOTION_TEST_PAGE_ID` to generate a temporary
 environment with the Notion objects to be tested, which will be deleted

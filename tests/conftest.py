@@ -5,8 +5,12 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 import pytest
+import vcr as vcrpy
 
 from notion_client import AsyncClient, Client
+
+
+CASSETTE_DIR = os.path.join(os.path.dirname(__file__), "cassettes")
 
 
 @pytest.fixture(scope="session")
@@ -35,7 +39,16 @@ def vcr_config() -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def vcr(vcr):
+def vcr_cassette_dir(request) -> str:
+    """Store all cassettes in a single flat ``cassettes`` directory.
+
+    pytest-recording defaults to a per-module subdirectory, but this project's
+    cassettes live directly in ``tests/cassettes``.
+    """
+    return CASSETTE_DIR
+
+
+def pytest_recording_configure(config, vcr):
     def remove_page_id_for_matches(r1, r2):
         RE_PAGE_ID = r"[\w]{8}-[\w]{4}-[\w]{4}-[\w]{4}-[\w]{12}"
         uri1 = str(getattr(r1, "uri", r1))
@@ -43,7 +56,6 @@ def vcr(vcr):
         return re.sub(RE_PAGE_ID, "", uri1) == re.sub(RE_PAGE_ID, "", uri2)
 
     vcr.register_matcher("remove_page_id_for_matches", remove_page_id_for_matches)
-    return vcr
 
 
 @pytest.fixture(scope="session")
@@ -52,7 +64,7 @@ def token() -> Optional[str]:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def parent_page_id(vcr) -> str:
+def parent_page_id() -> str:
     """this is the ID of the Notion page where the tests will be executed
     the bot must have access to the page with all the capabilities enabled"""
     page_id = os.environ.get("NOTION_TEST_PAGE_ID")
@@ -60,7 +72,8 @@ def parent_page_id(vcr) -> str:
         return page_id
 
     try:
-        with vcr.use_cassette("test_pages_create.yaml") as cass:
+        cassette_path = os.path.join(CASSETTE_DIR, "test_pages_create.yaml")
+        with vcrpy.use_cassette(cassette_path) as cass:
             response = cass._serializer.deserialize(cass.data[0][1]["body"]["string"])
             return response["parent"]["page_id"]
     except Exception:
